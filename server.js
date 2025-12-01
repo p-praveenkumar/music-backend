@@ -12,33 +12,25 @@ app.get("/", (req, res) => {
 
 // Search songs
 // ⭐ SEARCH SONGS (WORKING 2025)
+// ⭐ WORKING 2025 SAAVN SEARCH API
 app.get("/search", async (req, res) => {
     try {
         const query = req.query.q;
-
-        // YouTube unofficial search API
-        const url = `https://piped.video/api/v1/search?q=${query}`;
+        const url = `https://saavn.dev/api/search/songs?query=${query}`;
 
         const response = await axios.get(url);
 
-        const cleaned = response.data
-            .filter(item => item.type === "video")
-            .map(item => ({
-                id: item.id,
-                title: item.title,
-                thumbnail: item.thumbnail,
-                author: item.uploaderName,
-                duration: item.duration,
-                url: `https://piped.video/v/${item.id}`
-            }));
+        // Real songs list:
+        const songs = response.data.data.results;
 
-        res.json(cleaned);
+        res.json(songs);
 
     } catch (error) {
         console.log("SEARCH ERROR:", error.message);
-        res.json({ error: "Search failed" });
+        res.json({ error: "Search API failed" });
     }
 });
+
 
 
 // Lyrics API
