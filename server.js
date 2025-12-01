@@ -4,58 +4,37 @@ const cors = require("cors");
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
-// Test route
+// Root test
 app.get("/", (req, res) => {
-    res.send("Backend running successfully!");
+    res.send("Backend Connected Successfully! 🚀");
 });
 
-// ⭐ SEARCH SONGS (WORKING 2025)
+// ⭐ WORKING SEARCH API
 app.get("/search", async (req, res) => {
     try {
-        const query = req.query.q;
+        const { query } = req.query;
 
-        const url = `https://saavn.cloud/api/search/songs?query=${query}`;
-
-        const response = await axios.get(url);
-
-        const songs = response.data.data.results;
-
-        res.json(songs);
-    } catch (error) {
-        console.log("SEARCH ERROR:", error.message);
-        res.json({ error: "Search API failed" });
-    }
-});
-
-// ⭐ LYRICS API (100% working)
-app.get("/lyrics", async (req, res) => {
-    try {
-        const songId = req.query.id;
-
-        const url = `https://saavn.cloud/api/songs/${songId}`;
-
-        const response = await axios.get(url);
-
-        const song = response.data.data[0];
-
-        if (song.lyrics) {
-            const lyrics = song.lyrics
-                .replace(/<br>/g, "\n")
-                .replace(/<\/?[^>]+>/g, "");
-            return res.json({ lyrics });
+        if (!query) {
+            return res.status(400).json({ error: "Search query required" });
         }
 
-        res.json({ lyrics: "Lyrics not found" });
+        const apiURL = `https://saavn.dev/api/search/songs?query=${encodeURIComponent(
+            query
+        )}`;
+
+        const result = await axios.get(apiURL);
+
+        return res.json(result.data);
     } catch (error) {
-        console.log("LYRICS ERROR:", error.message);
-        res.json({ lyrics: "Lyrics not found" });
+        console.log("❌ SEARCH ERROR:", error.message);
+        return res.status(500).json({
+            error: "Search failed",
+            message: error.message,
+        });
     }
 });
 
-// Render Port Fix
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-    console.log("Backend running on port " + PORT);
-});
+const PORT = 5000;
+app.listen(PORT, () => console.log(`🔥 Server running at http://localhost:${PORT}`));
