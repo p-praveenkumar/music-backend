@@ -10,17 +10,16 @@ app.get("/", (req, res) => {
     res.send("Backend running successfully!");
 });
 
-
-// ⭐ SEARCH API (Stable for Render)
+// ⭐ SEARCH SONGS (WORKING 2025)
 app.get("/search", async (req, res) => {
     try {
         const query = req.query.q;
 
-        const url = `https://jiosaavn-api.vercel.app/search/songs?query=${query}`;
+        const url = `https://saavn.cloud/api/search/songs?query=${query}`;
 
         const response = await axios.get(url);
 
-        const songs = response.data.data;
+        const songs = response.data.data.results;
 
         res.json(songs);
     } catch (error) {
@@ -29,35 +28,34 @@ app.get("/search", async (req, res) => {
     }
 });
 
-
-// ⭐ LYRICS API (Using same stable API)
+// ⭐ LYRICS API (100% working)
 app.get("/lyrics", async (req, res) => {
     try {
-        const id = req.query.id;
+        const songId = req.query.id;
 
-        const url = `https://jiosaavn-api.vercel.app/songs?id=${id}`;
+        const url = `https://saavn.cloud/api/songs/${songId}`;
 
         const response = await axios.get(url);
 
-        if (response.data.data[0].lyrics) {
-            const lyrics = response.data.data[0].lyrics
+        const song = response.data.data[0];
+
+        if (song.lyrics) {
+            const lyrics = song.lyrics
                 .replace(/<br>/g, "\n")
                 .replace(/<\/?[^>]+>/g, "");
-
             return res.json({ lyrics });
         }
 
         res.json({ lyrics: "Lyrics not found" });
-
     } catch (error) {
         console.log("LYRICS ERROR:", error.message);
         res.json({ lyrics: "Lyrics not found" });
     }
 });
 
-
 // Render Port Fix
 const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, () => {
     console.log("Backend running on port " + PORT);
 });
