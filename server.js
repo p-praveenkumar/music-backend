@@ -11,18 +11,16 @@ app.get("/", (req, res) => {
 });
 
 
-// ⭐ SEARCH SONGS (100% WORKING 2025)
+// ⭐ SEARCH API (Stable for Render)
 app.get("/search", async (req, res) => {
     try {
         const query = req.query.q;
 
-        // Correct Saavn endpoint
-        const url = `https://saavn.dev/api/search/songs?query=${query}`;
+        const url = `https://jiosaavn-api.vercel.app/search/songs?query=${query}`;
 
         const response = await axios.get(url);
 
-        // Correct structure
-        const songs = response.data.data.results;
+        const songs = response.data.data;
 
         res.json(songs);
     } catch (error) {
@@ -32,26 +30,19 @@ app.get("/search", async (req, res) => {
 });
 
 
-// ⭐ LYRICS (100% WORKING 2025)
-// Uses Saavn official metadata → lyrics included!
+// ⭐ LYRICS API (Using same stable API)
 app.get("/lyrics", async (req, res) => {
     try {
-        const songId = req.query.id;
+        const id = req.query.id;
 
-        // Song details API
-        const url = `https://saavn.dev/api/songs/${songId}`;
+        const url = `https://jiosaavn-api.vercel.app/songs?id=${id}`;
 
         const response = await axios.get(url);
 
-        if (
-            response.data &&
-            response.data.data &&
-            response.data.data[0] &&
-            response.data.data[0].lyrics
-        ) {
+        if (response.data.data[0].lyrics) {
             const lyrics = response.data.data[0].lyrics
                 .replace(/<br>/g, "\n")
-                .replace(/<\/?[^>]+(>|$)/g, "");
+                .replace(/<\/?[^>]+>/g, "");
 
             return res.json({ lyrics });
         }
@@ -65,9 +56,8 @@ app.get("/lyrics", async (req, res) => {
 });
 
 
-// ⭐ RENDER PORT FIX
+// Render Port Fix
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, () => {
     console.log("Backend running on port " + PORT);
 });
