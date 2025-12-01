@@ -10,21 +10,21 @@ app.get("/", (req, res) => {
     res.send("Backend running successfully!");
 });
 
-// Search songs
-// ⭐ SEARCH SONGS (WORKING 2025)
-// ⭐ WORKING 2025 SAAVN SEARCH API
+
+// ⭐ SEARCH SONGS (100% WORKING 2025)
 app.get("/search", async (req, res) => {
     try {
         const query = req.query.q;
+
+        // Correct Saavn endpoint
         const url = `https://saavn.dev/api/search/songs?query=${query}`;
 
         const response = await axios.get(url);
 
-        // Real songs list:
+        // Correct structure
         const songs = response.data.data.results;
 
         res.json(songs);
-
     } catch (error) {
         console.log("SEARCH ERROR:", error.message);
         res.json({ error: "Search API failed" });
@@ -32,19 +32,28 @@ app.get("/search", async (req, res) => {
 });
 
 
-
-// Lyrics API
-// ⭐ WORKING LYRICS API FOR TELUGU / TAMIL / HINDI / KANNADA / MALAYALAM
+// ⭐ LYRICS (100% WORKING 2025)
+// Uses Saavn official metadata → lyrics included!
 app.get("/lyrics", async (req, res) => {
     try {
-        const title = req.query.title;
+        const songId = req.query.id;
 
-        const url = `https://some-random-api.com/lyrics?title=${title}`;
+        // Song details API
+        const url = `https://saavn.dev/api/songs/${songId}`;
 
         const response = await axios.get(url);
 
-        if (response.data && response.data.lyrics) {
-            return res.json({ lyrics: response.data.lyrics });
+        if (
+            response.data &&
+            response.data.data &&
+            response.data.data[0] &&
+            response.data.data[0].lyrics
+        ) {
+            const lyrics = response.data.data[0].lyrics
+                .replace(/<br>/g, "\n")
+                .replace(/<\/?[^>]+(>|$)/g, "");
+
+            return res.json({ lyrics });
         }
 
         res.json({ lyrics: "Lyrics not found" });
@@ -56,10 +65,9 @@ app.get("/lyrics", async (req, res) => {
 });
 
 
+// ⭐ RENDER PORT FIX
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
     console.log("Backend running on port " + PORT);
 });
-
-
