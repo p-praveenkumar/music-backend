@@ -4,37 +4,64 @@ const cors = require("cors");
 
 const app = express();
 app.use(cors());
-app.use(express.json());
 
-// Root test
+// Test route
 app.get("/", (req, res) => {
-    res.send("Backend Connected Successfully! 🚀");
+    res.send("YouTube Music Backend Running ✅");
 });
 
-// ⭐ WORKING SEARCH API
+/*
+ SEARCH SONGS
+ Uses Piped (YouTube proxy)
+*/
 app.get("/search", async (req, res) => {
     try {
-        const { query } = req.query;
+        const query = req.query.q;
 
-        if (!query) {
-            return res.status(400).json({ error: "Search query required" });
-        }
+        const url = `https://piped.video/api/v1/search?q=${encodeURIComponent(query)}&filter=videos`;
 
-        const apiURL = `https://saavn.dev/api/search/songs?query=${encodeURIComponent(
-            query
-        )}`;
+        const response = await axios.get(url);
 
-        const result = await axios.get(apiURL);
+        const songs = response.data.items.map(item => ({
+            id: item.id,
+            title: item.title,
+            thumbnail: item.thumbnail,
+            duration: item.duration,
+            artist: item.uploaderName,
+            audioUrl: `https://piped.video/latest_version?id=${item.id}&itag=251`
+        }));
 
-        return res.json(result.data);
+        res.json(songs);
     } catch (error) {
-        console.log("❌ SEARCH ERROR:", error.message);
-        return res.status(500).json({
-            error: "Search failed",
-            message: error.message,
-        });
+        console.log("SEARCH ERROR:", error.message);
+        res.json({ error: "Search failed" });
     }
 });
 
-const PORT = 5000;
-app.listen(PORT, () => console.log(`🔥 Server running at http://localhost:${PORT}`));
+/*
+ LYRICS API
+*/
+app.get("/lyrics", async (req, res) => {
+    try {
+        const title = req.query.title;
+
+        const url = `https://some-random-api.com/lyrics?title=${encodeURIComponent(title)}`;
+
+        const response = await axios.get(url);
+
+        if (response.data && response.data.lyrics) {
+            return res.json({ lyrics: response.data.lyrics });
+        }
+
+        res.json({ lyrics: "Lyrics not found" });
+    } catch (error) {
+        console.log("LYRICS ERROR:", error.message);
+        res.json({ lyrics: "Lyrics not found" });
+    }
+});
+
+// Render port fix
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log("Backend running on port " + PORT);
+});
