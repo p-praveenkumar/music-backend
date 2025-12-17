@@ -5,62 +5,78 @@ const cors = require("cors");
 const app = express();
 app.use(cors());
 
-// Test route
+// ================= TEST ROUTE =================
 app.get("/", (req, res) => {
-    res.send("YouTube Music Backend Running ✅");
+    res.send("Music backend is running ✅");
 });
 
-/*
- SEARCH SONGS
- Uses Piped (YouTube proxy)
-*/
+// ================= YOUTUBE SEARCH (WITH FALLBACKS) =================
 app.get("/search", async (req, res) => {
-    try {
-        const query = req.query.q;
+    const query = req.query.q;
 
-        const url = `https://piped.video/api/v1/search?q=${encodeURIComponent(query)}&filter=videos`;
-
-        const response = await axios.get(url);
-
-        const songs = response.data.items.map(item => ({
-            id: item.id,
-            title: item.title,
-            thumbnail: item.thumbnail,
-            duration: item.duration,
-            artist: item.uploaderName,
-            audioUrl: `https://piped.video/latest_version?id=${item.id}&itag=251`
-        }));
-
-        res.json(songs);
-    } catch (error) {
-        console.log("SEARCH ERROR:", error.message);
-        res.json({ error: "Search failed" });
+    if (!query) {
+        return res.json({ error: "Query missing" });
     }
+
+    // Multiple working Piped instances (fallback system)
+    const PIPED_APIS = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.syncpundit.io",
+        "https://piped.lunar.icu"
+    ];
+
+    for (let base of PIPED_APIS) {
+        try {
+            const url = `${base}/api/v1/search?q=${encodeURIComponent(query)}&filter=videos`;
+
+            const response = await axios.get(url, { timeout: 8000 });
+
+            if (!response.data || !response.data.items) continue;
+
+            const songs = response.data.items.map(item => ({
+                id: item.id,
+                title: item.title,
+                artist: item.uploaderName,
+                thumbnail: item.thumbnail,
+                duration: item.duration,
+                audioUrl: `${base}/latest_version?id=${item.id}&itag=251`
+            }));
+
+            // If we got songs, return immediately
+            if (songs.length > 0) {
+                return res.json(songs);
+            }
+
+        } catch (err) {
+            console.log(`❌ Failed from ${base}`);
+        }
+    }
+
+    // If all APIs fail
+    res.json({ error: "All search servers failed. Try again later." });
 });
 
-/*
- LYRICS API
-*/
+// ================= LYRICS (BEST FREE OPTION) =================
 app.get("/lyrics", async (req, res) => {
     try {
         const title = req.query.title;
+        if (!title) return res.json({ lyrics: "Lyrics not found" });
 
         const url = `https://some-random-api.com/lyrics?title=${encodeURIComponent(title)}`;
-
-        const response = await axios.get(url);
+        const response = await axios.get(url, { timeout: 8000 });
 
         if (response.data && response.data.lyrics) {
             return res.json({ lyrics: response.data.lyrics });
         }
 
         res.json({ lyrics: "Lyrics not found" });
+
     } catch (error) {
-        console.log("LYRICS ERROR:", error.message);
         res.json({ lyrics: "Lyrics not found" });
     }
 });
 
-// Render port fix
+// ================= RENDER PORT =================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log("Backend running on port " + PORT);
