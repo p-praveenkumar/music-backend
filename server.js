@@ -16,6 +16,12 @@ app.get("/search", async (req, res) => {
         const query = req.query.q;
         if (!query) return res.json([]);
 
+        if (!process.env.YOUTUBE_API_KEY) {
+            console.error("❌ YOUTUBE_API_KEY missing");
+            return res.status(500).json([]);
+        }
+
+        // 1️⃣ SEARCH
         const searchResponse = await axios.get(
             "https://www.googleapis.com/youtube/v3/search",
             {
@@ -28,62 +34,75 @@ app.get("/search", async (req, res) => {
                     videoEmbeddable: "true",
                     regionCode: "IN",
                     safeSearch: "strict",
+                    fields: "items(id/videoId,snippet/title,snippet/channelTitle,snippet/thumbnails/high/url)",
                     key: process.env.YOUTUBE_API_KEY
                 }
             }
         );
 
-        const videoIds = searchResponse.data.items
-            .map(item => item.id.videoId)
-            .join(",");
+        // ⚠️ VERY IMPORTANT FILTER
+        const validItems = searchResponse.data.items.filter(
+            item => item.id && item.id.videoId
+        );
 
-        if (!videoIds) return res.json([]);
+        if (validItems.length === 0) return res.json([]);
 
+        const videoIds = validItems.map(item => item.id.videoId).join(",");
+
+        // 2️⃣ DETAILS
         const detailsResponse = await axios.get(
             "https://www.googleapis.com/youtube/v3/videos",
             {
                 params: {
-                    part: "snippet,contentDetails,status",
+                    part: "contentDetails,status",
                     id: videoIds,
+                    fields: "items(id,contentDetails/duration,status/embeddable)",
                     key: process.env.YOUTUBE_API_KEY
                 }
             }
         );
 
-        const songs = detailsResponse.data.items
-            .filter(video => {
-                const title = video.snippet.title.toLowerCase();
-                if (
-                    title.includes("trailer") ||
-                    title.includes("teaser") ||
-                    title.includes("movie") ||
-                    title.includes("shorts") ||
-                    title.includes("#shorts")
-                ) return false;
+        // Map id → details
+        const detailsMap = {};
+        detailsResponse.data.items.forEach(v => {
+            detailsMap[v.id] = v;
+        });
 
-                if (!video.status.embeddable) return false;
+        // 3️⃣ FINAL FILTER
+        const songs = validItems.filter(item => {
+            const video = detailsMap[item.id.videoId];
+            if (!video) return false;
 
-                const duration = parseDuration(video.contentDetails.duration);
-                if (duration < 60) return false;
+            if (!video.status.embeddable) return false;
 
-                return true;
-            })
-            .map(video => ({
-                videoId: video.id,
-                title: video.snippet.title,
-                channel: video.snippet.channelTitle,
-                thumbnail: video.snippet.thumbnails.high.url
-            }));
+            const duration = parseDuration(video.contentDetails.duration);
+            if (duration < 60) return false;
+
+            const title = item.snippet.title.toLowerCase();
+            if (
+                title.includes("trailer") ||
+                title.includes("teaser") ||
+                title.includes("movie") ||
+                title.includes("shorts")
+            ) return false;
+
+            return true;
+        }).map(item => ({
+            videoId: item.id.videoId,
+            title: item.snippet.title,
+            channel: item.snippet.channelTitle,
+            thumbnail: item.snippet.thumbnails.high.url
+        }));
 
         res.json(songs);
 
     } catch (error) {
-        console.error("SEARCH ERROR:", error.message);
+        console.error("SEARCH ERROR:", error.response?.data || error.message);
         res.status(500).json([]);
     }
 });
 
-/* ================= 🔥 ADD LATEST SONGS ROUTE HERE 🔥 ================= */
+/* ================= LATEST SONGS ================= */
 app.get("/latest", async (req, res) => {
     try {
         const response = await axios.get(
@@ -98,17 +117,20 @@ app.get("/latest", async (req, res) => {
                     videoCategoryId: "10",
                     videoEmbeddable: "true",
                     regionCode: "IN",
+                    fields: "items(id/videoId,snippet/title,snippet/channelTitle,snippet/thumbnails/high/url)",
                     key: process.env.YOUTUBE_API_KEY
                 }
             }
         );
 
-        const songs = response.data.items.map(item => ({
-            videoId: item.id.videoId,
-            title: item.snippet.title,
-            channel: item.snippet.channelTitle,
-            thumbnail: item.snippet.thumbnails.high.url
-        }));
+        const songs = response.data.items
+            .filter(item => item.id && item.id.videoId)
+            .map(item => ({
+                videoId: item.id.videoId,
+                title: item.snippet.title,
+                channel: item.snippet.channelTitle,
+                thumbnail: item.snippet.thumbnails.high.url
+            }));
 
         res.json(songs);
 
@@ -132,7 +154,7 @@ function parseDuration(iso) {
     return minutes * 60 + seconds;
 }
 
-/* ================= START SERVER ================= */
+/* ================= START ================= */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log("Backend running on port " + PORT);
